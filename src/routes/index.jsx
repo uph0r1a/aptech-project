@@ -1,19 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import PublicRoute from './PublicRoute';
 import PrivateRoute from './PrivateRoute';
-
-// Public pages
 import HomePage from '../pages/Home';
 import LoginPage from '../pages/Login';
-
-// Private pages
+import RegisterPage from '../pages/Register';
+import ForgotPasswordPage from '../pages/ForgotPassword';
 import DashboardPage from '../pages/Dashboard';
 
 const AppRoutes = () => {
     return (
         <BrowserRouter>
             <Routes>
-                {/* Public Routes */}
                 <Route
                     path="/"
                     element={
@@ -32,7 +29,24 @@ const AppRoutes = () => {
                     }
                 />
 
-                {/* Private Routes */}
+                <Route
+                    path="/register"
+                    element={
+                        <PublicRoute>
+                            <RegisterPage />
+                        </PublicRoute>
+                    }
+                />
+
+                <Route
+                    path="/forgot-password"
+                    element={
+                        <PublicRoute>
+                            <ForgotPasswordPage />
+                        </PublicRoute>
+                    }
+                />
+
                 <Route
                     path="/dashboard"
                     element={
@@ -42,7 +56,6 @@ const AppRoutes = () => {
                     }
                 />
 
-                {/* Redirect unknown routes to home */}
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </BrowserRouter>

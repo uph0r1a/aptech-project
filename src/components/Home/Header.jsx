@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 const Header = () => {
     return (
         <header className="bg-purple-600 w-full">
@@ -17,9 +19,9 @@ const Header = () => {
                     <button className="text-white px-4 py-2 rounded hover:bg-white/10 transition-colors">
                         Nhà tuyển dụng
                     </button>
-                    <button className="bg-white text-purple-600 px-6 py-2 rounded font-medium hover:bg-gray-100 transition-colors">
+                    <Link to="/login" className="bg-white text-purple-600 px-6 py-2 rounded font-medium hover:bg-gray-100 transition-colors">
                         Đăng nhập
-                    </button>
+                    </Link>
                 </div>
             </div>
         </header>

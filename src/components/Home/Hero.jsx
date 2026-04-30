@@ -10,28 +10,28 @@ const Hero = () => {
                 </p>
 
                 <div className="bg-white rounded-lg p-4 flex gap-4 items-center flex-wrap">
-                    <div className="flex-1 min-w-[200px]">
+                    <div className="flex-1 min-w-50">
                         <input
                             type="text"
                             className="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 text-sm text-gray-900 outline-none focus:border-purple-600 focus:bg-white"
                             placeholder="Vị trí tuyển dụng"
                         />
                     </div>
-                    <div className="flex-1 min-w-[200px]">
+                    <div className="flex-1 min-w-50">
                         <input
                             type="text"
                             className="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 text-sm text-gray-900 outline-none focus:border-purple-600 focus:bg-white"
                             placeholder="Tất cả địa điểm"
                         />
                     </div>
-                    <div className="flex-1 min-w-[200px]">
+                    <div className="flex-1 min-w-50">
                         <input
                             type="text"
                             className="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 text-sm text-gray-900 outline-none focus:border-purple-600 focus:bg-white"
                             placeholder="Tất cả mức lương"
                         />
                     </div>
-                    <div className="flex-1 min-w-[200px]">
+                    <div className="flex-1 min-w-50">
                         <input
                             type="text"
                             className="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 text-sm text-gray-900 outline-none focus:border-purple-600 focus:bg-white"
