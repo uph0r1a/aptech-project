@@ -1,36 +1,84 @@
 import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+
+//Icon loading
+const SpinnerIcon = () => (
+    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+    </svg>
+);
+
 //Nhập email
 const Email = ({ onNext }) => {
     const [email, setEmail] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
+    const handleEmailChange = (e) => {
+        setEmail(e.target.value);
+        setError('');
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Kiểm tra email
-        if (!email.trim()) { setError('Vui lòng nhập email.'); return; }
-        if (!/\S+@\S+\.\S+/.test(email)) { setError('Email không hợp lệ.'); return; }
+        //Kiểm tra email không được trống
+        if (!email.trim()) {
+            setError('Vui lòng nhập email.');
+            return;
+        }
+
+        //Kiểm tra email hợp lệ
+        const emailRegex = /\S+@\S+\.\S+/;
+        const emailIsValid = emailRegex.test(email);
+
+        if (!emailIsValid) {
+            setError('Email không hợp lệ.');
+            return;
+        }
 
         setLoading(true);
 
-        //thêm fetch vào php để gửi mail
-
+        //TODO: Gọi API PHP để gửi mã OTP đến email người dùng
+        //Cách làm:
+        //1. Gửi POST request đến file PHP
+        //2. Truyền email trong body dưới dạng JSON
+        //3. PHP sẽ tạo mã OTP, lưu vào database, rồi gửi email cho người dùng
+        //4. Nếu thành công thì gọi onNext(email) để qua bước nhập OTP
+        //5. Nếu thất bại thì hiện lỗi và tắt loading
     };
+
+    //class viền cho input email
+    let inputClass = 'w-full px-3 py-2.5 border rounded-lg text-sm outline-none transition-colors ';
+
+    if (error) {
+        inputClass = inputClass + 'border-red-400 bg-red-50';
+    } else {
+        inputClass = inputClass + 'border-gray-300 focus:border-purple-500';
+    }
+
+    //chữ hiển thị trên nút submit
+    let buttonText = 'Gửi mã xác nhận';
+
+    if (loading) {
+        buttonText = 'Đang gửi...';
+    }
 
     return (
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-                <label htmlFor="fp-email" className="text-sm font-medium text-gray-700">Địa chỉ email</label>
+                <label htmlFor="fp-email" className="text-sm font-medium text-gray-700">
+                    Địa chỉ email
+                </label>
                 <input
                     id="fp-email"
                     type="email"
                     placeholder="example@email.com"
-                    className={`w-full px-3 py-2.5 border rounded-lg text-sm outline-none transition-colors ${error ? 'border-red-400 bg-red-50' : 'border-gray-300 focus:border-purple-500'}`}
+                    className={inputClass}
                     value={email}
-                    onChange={(e) => { setEmail(e.target.value); setError(''); }}
+                    onChange={handleEmailChange}
                     autoComplete="email"
                 />
                 {error && <p className="text-xs text-red-500">{error}</p>}
@@ -41,13 +89,8 @@ const Email = ({ onNext }) => {
                 disabled={loading}
                 className="w-full py-2.5 bg-purple-600 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-purple-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
-                {loading && (
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                    </svg>
-                )}
-                {loading ? 'Đang gửi...' : 'Gửi mã xác nhận'}
+                {loading && <SpinnerIcon />}
+                {buttonText}
             </button>
         </form>
     );
@@ -56,84 +99,143 @@ const Email = ({ onNext }) => {
 
 //Nhập OTP
 const OTP = ({ email, onNext }) => {
-    const [otp, setOtp] = useState(Array(6).fill(''));
+    const [otp, setOtp] = useState(['', '', '', '', '', '']);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [resent, setResent] = useState(false);
 
     const inputs = useRef([]);
 
-    const handleChange = (i, val) => {
-        // kiểm tra số chỉ được từ 0-9
-        if (!/^\d?$/.test(val)) return;
+    //Xử lý người dùng nhập vào từng ô
+    const handleChange = (index, value) => {
+        //Chỉ cho phép nhập chữ số 0-9, hoặc xóa trống
+        const isValidDigit = /^\d?$/.test(value);
 
-        const next = [...otp];
-        next[i] = val;
-        setOtp(next);
+        if (!isValidDigit) {
+            return;
+        }
+
+        //Sao chép mảng OTP hiện tại, sau đó cập nhật ô vừa nhập
+        const newOtp = otp.slice();
+        newOtp[index] = value;
+        setOtp(newOtp);
         setError('');
 
-        // tự sang ô tiếp
-        if (val && i < 5) inputs.current[i + 1]?.focus();
-    };
+        //Nếu đã nhập và chưa phải ô cuối, tự chuyển sang ô kế tiếp
+        const isNotLastInput = index < 5;
 
-    // chuyển về ô trước
-    const handleKeyDown = (i, e) => {
-        if (e.key === 'Backspace' && !otp[i] && i > 0) {
-            inputs.current[i - 1]?.focus();
+        if (value && isNotLastInput) {
+            const nextInput = inputs.current[index + 1];
+
+            if (nextInput) {
+                nextInput.focus();
+            }
         }
     };
 
-    // paste thay vif nhập
+    //Khi nhấn Backspace ở ô trống, quay về ô trước
+    const handleKeyDown = (index, e) => {
+        const isBackspace = e.key === 'Backspace';
+        const currentCellEmpty = !otp[index];
+        const isNotFirstInput = index > 0;
+
+        if (isBackspace && currentCellEmpty && isNotFirstInput) {
+            const prevInput = inputs.current[index - 1];
+
+            if (prevInput) {
+                prevInput.focus();
+            }
+        }
+    };
+
+    //Xử lý dán (Ctrl+V) toàn bộ mã OTP một lần
     const handlePaste = (e) => {
-        const paste = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-        if (paste.length === 6) {
-            setOtp(paste.split(''));
-            inputs.current[5]?.focus();
+        const pastedText = e.clipboardData.getData('text');
+        const digitsOnly = pastedText.replace(/\D/g, '').slice(0, 6);
+
+        if (digitsOnly.length === 6) {
+            setOtp(digitsOnly.split(''));
+
+            const lastInput = inputs.current[5];
+
+            if (lastInput) {
+                lastInput.focus();
+            }
         }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
         const code = otp.join('');
 
-        if (code.length < 6) { setError('Vui lòng nhập đủ 6 chữ số.'); return; }
+        if (code.length < 6) {
+            setError('Vui lòng nhập đủ 6 chữ số.');
+            return;
+        }
 
         setLoading(true);
 
-        //thêm kiểm tra xem otp có đúng ko
+        // TODO: Gửi OTP lên server PHP để xác minh
+        // Cách làm:
+        //   1. Gửi POST request đến file PHP (ví dụ: /api/verify-otp.php)
+        //   2. Truyền email và mã OTP trong body dưới dạng JSON
+        //   3. PHP sẽ so sánh mã OTP với mã đã lưu trong database
+        //   4. Kiểm tra thêm xem OTP có còn hạn sử dụng không (ví dụ: 5 phút)
+        //   5. Nếu đúng thì gọi onNext() để qua bước đặt mật khẩu mới
+        //   6. Nếu sai hoặc hết hạn thì hiện lỗi và tắt loading
     };
 
-    // Gửi lại OTP cần thêm cooldown để ko spam gửi lại otp
+    // TODO: Thêm cooldown (ví dụ 60 giây) để tránh spam gửi lại OTP
+    // Cách làm:
+    //   1. Dùng thêm một state đếm ngược (ví dụ: countdown) bắt đầu từ 60
+    //   2. Dùng setInterval để đếm ngược mỗi giây
+    //   3. Khi countdown > 0 thì ẩn nút "Gửi lại" hoặc hiện chữ "Gửi lại sau Xs"
+    //   4. Khi countdown = 0 thì cho phép nhấn gửi lại
     const handleResend = async () => {
         setResent(true);
-        try {
-            await fetch('/api/forgot-password.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email }),
-            });
-        } finally {
-            setResent(false);
-        }
+
+        // TODO: Gửi lại OTP cho người dùng
+        // Cách làm:
+        //   1. Gọi lại cùng API đã dùng ở bước 1 (/api/forgot-password.php)
+        //   2. PHP sẽ tạo mã OTP mới, xóa mã cũ, rồi gửi email lại
+        //   3. Sau khi gửi xong (dù thành công hay thất bại) thì tắt trạng thái resent
+
+        setResent(false);
     };
+
+    // Xác định chữ của nút gửi lại
+    let resendText = 'Gửi lại';
+
+    if (resent) {
+        resendText = 'Đã gửi lại!';
+    }
+
+    // Xác định chữ hiển thị trên nút submit
+    let buttonText = 'Xác nhận';
+
+    if (loading) {
+        buttonText = 'Đang xác minh...';
+    }
 
     return (
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
             <p className="text-sm text-gray-500 text-center">
-                Nhập mã 6 chữ số đã gửi đến <span className="font-medium text-gray-700">{email}</span>
+                Nhập mã 6 chữ số đã gửi đến{' '}
+                <span className="font-medium text-gray-700">{email}</span>
             </p>
 
             <div className="flex gap-2 justify-center" onPaste={handlePaste}>
-                {otp.map((val, i) => (
+                {otp.map((value, index) => (
                     <input
-                        key={i}
-                        ref={(el) => (inputs.current[i] = el)}
+                        key={index}
+                        ref={(el) => { inputs.current[index] = el; }}
                         type="text"
                         inputMode="numeric"
                         maxLength={1}
-                        value={val}
-                        onChange={(e) => handleChange(i, e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(i, e)}
+                        value={value}
+                        onChange={(e) => handleChange(index, e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(index, e)}
                         className="w-11 h-12 text-center text-lg font-semibold border border-gray-300 rounded-lg outline-none focus:border-purple-500 transition-colors"
                     />
                 ))}
@@ -144,7 +246,7 @@ const OTP = ({ email, onNext }) => {
             <p className="text-center text-xs text-gray-400">
                 Không nhận được mã?{' '}
                 <button type="button" onClick={handleResend} className="text-purple-600 hover:underline cursor-pointer">
-                    {resent ? '✓ Đã gửi lại!' : 'Gửi lại'}
+                    {resendText}
                 </button>
             </p>
 
@@ -153,84 +255,144 @@ const OTP = ({ email, onNext }) => {
                 disabled={loading}
                 className="w-full py-2.5 bg-purple-600 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-purple-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
-                {loading && (
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                    </svg>
-                )}
-                {loading ? 'Đang xác minh...' : 'Xác nhận'}
+                {loading && <SpinnerIcon />}
+                {buttonText}
             </button>
         </form>
     );
 };
 
 
-//Đổi mật khẩu
+//Đặt mật khẩu mới
 const NewPassword = ({ onDone }) => {
-    const [form, setForm] = useState({ password: '', confirm: '' });
-    const [errors, setErrors] = useState({});
+    const [password, setPassword] = useState('');
+    const [confirm, setConfirm] = useState('');
+    const [passwordError, setPasswordError] = useState('');
+    const [confirmError, setConfirmError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // check mật khẩu
+    const handlePasswordChange = (e) => {
+        setPassword(e.target.value);
+        setPasswordError('');
+    };
+
+    const handleConfirmChange = (e) => {
+        setConfirm(e.target.value);
+        setConfirmError('');
+    };
+
+    // Kiểm tra hợp lệ, trả về true nếu không có lỗi
     const validate = () => {
-        const e = {};
-        if (!form.password) e.password = 'Vui lòng nhập mật khẩu mới.';
-        else if (form.password.length < 8) e.password = 'Mật khẩu tối thiểu 8 ký tự.';
-        if (!form.confirm) e.confirm = 'Vui lòng xác nhận mật khẩu.';
-        else if (form.confirm !== form.password) e.confirm = 'Mật khẩu không khớp.';
-        return e;
+        let isValid = true;
+
+        if (!password) {
+            setPasswordError('Vui lòng nhập mật khẩu mới.');
+            isValid = false;
+        } else if (password.length < 8) {
+            setPasswordError('Mật khẩu tối thiểu 8 ký tự.');
+            isValid = false;
+        }
+
+        if (!confirm) {
+            setConfirmError('Vui lòng xác nhận mật khẩu.');
+            isValid = false;
+        } else if (confirm !== password) {
+            setConfirmError('Mật khẩu không khớp.');
+            isValid = false;
+        }
+
+        return isValid;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        const errs = validate();
-        setErrors(errs);
-        if (Object.keys(errs).length) return;
+        const isValid = validate();
+
+        if (!isValid) {
+            return;
+        }
 
         setLoading(true);
 
-        //thêm xác định tài khoản cần cập nhật, sau đó vô hiệu hóa OTP
+        // TODO: Gửi mật khẩu mới lên server PHP để cập nhật
+        // Cách làm:
+        //   1. Gửi POST request đến file PHP (ví dụ: /api/reset-password.php)
+        //   2. Truyền email (hoặc token từ bước OTP) và mật khẩu mới trong body
+        //   3. PHP sẽ tìm tài khoản theo email, cập nhật mật khẩu mới (đã hash)
+        //   4. Sau khi cập nhật xong thì đánh dấu OTP là đã dùng (vô hiệu hóa)
+        //   5. Nếu thành công thì gọi onDone() để hiện màn hình thành công
+        //   6. Nếu thất bại thì hiện lỗi và tắt loading
+
     };
 
-    //cập nhật từng trường
-    const set = (field) => (ev) => {
-        setForm((f) => ({ ...f, [field]: ev.target.value }));
-        setErrors((er) => ({ ...er, [field]: undefined }));
-    };
+    // Xác định class viền cho ô mật khẩu
+    let passwordInputClass = 'w-full px-3 py-2.5 border rounded-lg text-sm outline-none transition-colors ';
+
+    if (passwordError) {
+        passwordInputClass = passwordInputClass + 'border-red-400 bg-red-50';
+    } else {
+        passwordInputClass = passwordInputClass + 'border-gray-300 focus:border-purple-500';
+    }
+
+    // Xác định class viền cho ô xác nhận mật khẩu
+    let confirmInputClass = 'w-full px-3 py-2.5 border rounded-lg text-sm outline-none transition-colors ';
+
+    if (confirmError) {
+        confirmInputClass = confirmInputClass + 'border-red-400 bg-red-50';
+    } else if (confirm && confirm === password) {
+        confirmInputClass = confirmInputClass + 'border-green-400';
+    } else {
+        confirmInputClass = confirmInputClass + 'border-gray-300 focus:border-purple-500';
+    }
+
+    // Xác định chữ hiển thị trên nút submit
+    let buttonText = 'Đặt mật khẩu mới';
+
+    if (loading) {
+        buttonText = 'Đang lưu...';
+    }
+
+    // Kiểm tra có nên hiện thông báo "Mật khẩu khớp" không
+    let shouldShowMatchMessage = false;
+
+    if (!confirmError && confirm && confirm === password) {
+        shouldShowMatchMessage = true;
+    }
 
     return (
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-                <label htmlFor="new-pw" className="text-sm font-medium text-gray-700">Mật khẩu mới</label>
+                <label htmlFor="new-pw" className="text-sm font-medium text-gray-700">
+                    Mật khẩu mới
+                </label>
                 <input
                     id="new-pw"
                     type="password"
                     placeholder="Tối thiểu 8 ký tự"
-                    className={`w-full px-3 py-2.5 border rounded-lg text-sm outline-none transition-colors ${errors.password ? 'border-red-400 bg-red-50' : 'border-gray-300 focus:border-purple-500'}`}
-                    value={form.password}
-                    onChange={set('password')}
+                    className={passwordInputClass}
+                    value={password}
+                    onChange={handlePasswordChange}
                     autoComplete="new-password"
                 />
-                {errors.password && <p className="text-xs text-red-500">{errors.password}</p>}
+                {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
             </div>
 
             <div className="flex flex-col gap-1">
-                <label htmlFor="confirm-pw" className="text-sm font-medium text-gray-700">Xác nhận mật khẩu mới</label>
+                <label htmlFor="confirm-pw" className="text-sm font-medium text-gray-700">
+                    Xác nhận mật khẩu mới
+                </label>
                 <input
                     id="confirm-pw"
                     type="password"
                     placeholder="Nhập lại mật khẩu"
-                    className={`w-full px-3 py-2.5 border rounded-lg text-sm outline-none transition-colors ${errors.confirm ? 'border-red-400 bg-red-50' : form.confirm && form.confirm === form.password ? 'border-green-400' : 'border-gray-300 focus:border-purple-500'}`}
-                    value={form.confirm}
-                    onChange={set('confirm')}
+                    className={confirmInputClass}
+                    value={confirm}
+                    onChange={handleConfirmChange}
                     autoComplete="new-password"
                 />
-                {errors.confirm && <p className="text-xs text-red-500">{errors.confirm}</p>}
-                {!errors.confirm && form.confirm && form.confirm === form.password && (
-                    <p className="text-xs text-green-500">✓ Mật khẩu khớp</p>
-                )}
+                {confirmError && <p className="text-xs text-red-500">{confirmError}</p>}
+                {shouldShowMatchMessage && <p className="text-xs text-green-500">✓ Mật khẩu khớp</p>}
             </div>
 
             <button
@@ -238,18 +400,15 @@ const NewPassword = ({ onDone }) => {
                 disabled={loading}
                 className="w-full py-2.5 bg-purple-600 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-purple-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
-                {loading && (
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                    </svg>
-                )}
-                {loading ? 'Đang lưu...' : 'Đặt mật khẩu mới'}
+                {loading && <SpinnerIcon />}
+                {buttonText}
             </button>
         </form>
     );
 };
 
+
+//Quên mật khẩu
 const ForgotPasswordPage = () => {
     const navigate = useNavigate();
     const [step, setStep] = useState(0);
@@ -261,7 +420,28 @@ const ForgotPasswordPage = () => {
         { title: 'Mật khẩu mới', subtitle: 'Tạo mật khẩu mới cho tài khoản' },
     ];
 
+    // Xử lý nút quay lại:về trang login,sau về bước trước
+    const handleBack = () => {
+        if (step === 0) {
+            navigate('/login');
+        } else {
+            setStep(step - 1);
+        }
+    };
+
+    // Xác định chữ của nút quay lại
+    let backButtonLabel = 'Quay lại';
+
+    if (step === 0) {
+        backButtonLabel = 'Quay lại đăng nhập';
+    }
+
+    // Màn hình thành công sau khi đặt mật khẩu xong
     if (step === 3) {
+        const goToLogin = () => {
+            navigate('/login');
+        };
+
         return (
             <div className="min-h-screen flex items-center justify-center bg-linear-to-r from-purple-600 to-purple-400">
                 <div className="w-full max-w-md px-4">
@@ -274,7 +454,7 @@ const ForgotPasswordPage = () => {
                         <h2 className="text-2xl font-bold text-gray-800 mb-2">Đặt lại thành công!</h2>
                         <p className="text-gray-500 text-sm mb-6">Mật khẩu đã được cập nhật. Vui lòng đăng nhập lại.</p>
                         <button
-                            onClick={() => navigate('/login')}
+                            onClick={goToLogin}
                             className="w-full py-2.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors cursor-pointer"
                         >
                             Đăng nhập
@@ -285,42 +465,67 @@ const ForgotPasswordPage = () => {
         );
     }
 
+    // Hàm nhận email từ component Email rồi chuyển sang bước OTP
+    const handleEmailDone = (submittedEmail) => {
+        setEmail(submittedEmail);
+        setStep(1);
+    };
+
+    // Hàm chuyển từ bước OTP sang bước đặt mật khẩu
+    const handleOtpDone = () => {
+        setStep(2);
+    };
+
+    // Hàm chuyển từ bước đặt mật khẩu sang màn hình thành công
+    const handlePasswordDone = () => {
+        setStep(3);
+    };
+
     return (
         <div className="min-h-screen flex items-center justify-center bg-linear-to-r from-purple-600 to-purple-400">
             <div className="w-full max-w-md px-4">
-
                 <div className="text-center mb-6">
                     <Link to="/" className="text-white font-bold text-3xl tracking-tight">JobHot</Link>
                     <p className="text-purple-100 text-sm mt-1">Tìm việc làm dễ dàng hơn</p>
                 </div>
-
                 <div className="bg-white rounded-2xl p-8 shadow-xl">
-
                     <button
-                        onClick={() => step === 0 ? navigate('/login') : setStep((s) => s - 1)}
+                        onClick={handleBack}
                         className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors cursor-pointer mb-5"
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+                            <line x1="19" y1="12" x2="5" y2="12" />
+                            <polyline points="12 19 5 12 12 5" />
                         </svg>
-                        {step === 0 ? 'Quay lại đăng nhập' : 'Quay lại'}
+                        {backButtonLabel}
                     </button>
-
                     <div className="flex items-center gap-1.5 justify-center mb-6">
-                        {[0, 1, 2].map((i) => (
-                            <div
-                                key={i}
-                                className={`h-1.5 rounded-full transition-all ${i === step ? 'w-6 bg-purple-600' : i < step ? 'w-1.5 bg-purple-300' : 'w-1.5 bg-gray-200'}`}
-                            />
-                        ))}
+                        {[0, 1, 2].map((i) => {
+                            let dotClass = 'h-1.5 rounded-full transition-all ';
+
+                            if (i === step) {
+                                dotClass = dotClass + 'w-6 bg-purple-600';   // Bước hiện tại
+                            } else if (i < step) {
+                                dotClass = dotClass + 'w-1.5 bg-purple-300'; // Bước đã qua
+                            } else {
+                                dotClass = dotClass + 'w-1.5 bg-gray-200';   // Bước chưa tới
+                            }
+
+                            return <div key={i} className={dotClass} />;
+                        })}
                     </div>
 
-                    <h1 className="text-2xl font-bold text-center mb-1 text-gray-800">{stepTitles[step].title}</h1>
-                    <p className="text-center text-gray-500 text-sm mb-6">{stepTitles[step].subtitle}</p>
+                    <h1 className="text-2xl font-bold text-center mb-1 text-gray-800">
+                        {stepTitles[step].title}
+                    </h1>
+                    <p className="text-center text-gray-500 text-sm mb-6">
+                        {stepTitles[step].subtitle}
+                    </p>
 
-                    {step === 0 && <Email onNext={(e) => { setEmail(e); setStep(1); }} />}
-                    {step === 1 && <OTP email={email} onNext={() => setStep(2)} />}
-                    {step === 2 && <NewPassword onDone={() => setStep(3)} />}
+                    {step === 0 && <Email onNext={handleEmailDone} />}
+                    {step === 1 && <OTP email={email} onNext={handleOtpDone} />}
+                    {step === 2 && <NewPassword onDone={handlePasswordDone} />}
+
                 </div>
             </div>
         </div>
